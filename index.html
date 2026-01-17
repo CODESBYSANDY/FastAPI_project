@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Student Management</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Segoe UI", sans-serif;
+  background: linear-gradient(120deg, #89f7fe, #66a6ff);
+  padding: 30px;
+}
+
+h1 {
+  text-align: center;
+  color: #fff;
+  margin-bottom: 20px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: auto;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+}
+
+form {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+input {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+button {
+  border: none;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.primary {
+  background: #007bff;
+  color: white;
+}
+
+.primary:hover {
+  background: #0056b3;
+}
+
+.warning {
+  background: #ffc107;
+}
+
+.danger {
+  background: #dc3545;
+  color: white;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+  text-align: center;
+}
+
+th {
+  background: #f1f1f1;
+}
+
+.actions button {
+  margin: 0 4px;
+}
+
+.pagination {
+  margin-top: 15px;
+  display: flex;
+  justify-content: space-between;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Student Management</h1>
+
+<div class="container">
+
+<form id="studentForm">
+  <input id="name" placeholder="Name" required />
+  <input id="age" type="number" placeholder="Age" required />
+  <input id="email" type="email" placeholder="Email" required />
+  <input id="phone" placeholder="Phone" required />
+  <button id="saveBtn" class="primary">Add Student</button>
+</form>
+
+<div class="controls">
+  <input id="searchId" type="number" placeholder="Search by Student ID" />
+  <button class="primary" onclick="searchStudent()">Search</button>
+  <button class="warning" onclick="resetView()">Reset</button>
+</div>
+
+<table>
+<thead>
+<tr>
+  <th>ID</th>
+  <th>Name</th>
+  <th>Age</th>
+  <th>Email</th>
+  <th>Phone</th>
+  <th>Actions</th>
+</tr>
+</thead>
+<tbody id="studentTable"></tbody>
+</table>
+
+<div class="pagination">
+  <button class="primary" onclick="prevPage()">Previous</button>
+  <button class="primary" onclick="nextPage()">Next</button>
+</div>
+
+</div>
+
+<script>
+const API = "http://127.0.0.1:8000/students/";
+let skip = 0;
+let limit = 5;
+let editingId = null;
+
+async function loadStudents() {
+  const res = await fetch(`${API}?skip=${skip}&limit=${limit}`);
+  const data = await res.json();
+  renderTable(data);
+}
+
+function renderTable(data) {
+  const table = document.getElementById("studentTable");
+  table.innerHTML = "";
+
+  if (data.length === 0) {
+    table.innerHTML = "<tr><td colspan='6'>No data</td></tr>";
+    return;
+  }
+
+  data.forEach(s => {
+    table.innerHTML += `
+      <tr>
+        <td>${s.id}</td>
+        <td>${s.name}</td>
+        <td>${s.age}</td>
+        <td>${s.email}</td>
+        <td>${s.phone}</td>
+        <td class="actions">
+          <button class="warning" onclick="editStudent(${s.id})">Edit</button>
+          <button class="danger" onclick="deleteStudent(${s.id})">Delete</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+document.getElementById("studentForm").onsubmit = async e => {
+  e.preventDefault();
+
+  const payload = {
+    name: name.value,
+    age: Number(age.value),
+    email: email.value,
+    phone: phone.value
+  };
+
+  if (editingId) {
+    await fetch(API + editingId, {
+      method: "PUT",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+    editingId = null;
+    saveBtn.textContent = "Add Student";
+  } else {
+    await fetch(API, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+  }
+
+  e.target.reset();
+  loadStudents();
+};
+
+async function editStudent(id) {
+  const res = await fetch(API + id);
+  const s = await res.json();
+
+  name.value = s.name;
+  age.value = s.age;
+  email.value = s.email;
+  phone.value = s.phone;
+
+  editingId = id;
+  saveBtn.textContent = "Update Student";
+}
+
+async function deleteStudent(id) {
+  if (!confirm("Delete this student?")) return;
+  await fetch(API + id, {method: "DELETE"});
+  loadStudents();
+}
+
+async function searchStudent() {
+  const id = searchId.value;
+  if (!id) return;
+
+  const res = await fetch(API + id);
+  const data = await res.json();
+  renderTable([data]);
+}
+
+function resetView() {
+  searchId.value = "";
+  skip = 0;
+  loadStudents();
+}
+
+function nextPage() {
+  skip += limit;
+  loadStudents();
+}
+
+function prevPage() {
+  skip = Math.max(0, skip - limit);
+  loadStudents();
+}
+
+loadStudents();
+</script>
+
+</body>
+</html>
